@@ -1,0 +1,11 @@
+# Verilator / Simulation outputs
+/sim/*
+!/sim/.keep
+obj_dir/
+*.vcd
+*.fst
+*.out
+
+# C++ compilation
+*.o
+*.d
