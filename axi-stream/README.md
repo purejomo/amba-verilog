@@ -21,4 +21,5 @@
 ```bash
 make clean && make sim
 ```
-> **관전 포인트**: 시뮬레이션 로그를 통해 통신이 막힌 구간(`TREADY=0`)에서 Master 모듈이 자신에게 데이터를 주는 User Logic 쪽으로 어떻게 Back-pressure를 전달하여 입력을 멈추게 하는지 확인하세요. 컴파일이 종료되면 `sim/dump.vcd` 파일을 **GTKWave**로 열어 눈으로 직접 타이밍 파형을 검증하실 수 있습니다.
+key point: 통신이 끊긴 구간(`TREADY=0`)에서 Master 모듈이 자신에게 데이터를 주는 User Logic 쪽으로 어떻게 Back-pressure를 전달하여 입력을 멈추게 하는지 확인해보길 바랍니다.
+컴파일이 종료되면 `sim/dump.vcd` 파일을 **GTKWave**로 열어 눈으로 직접 타이밍 파형을 검증하실 수 있습니다.

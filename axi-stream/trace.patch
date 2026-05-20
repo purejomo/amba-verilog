@@ -1,0 +1,43 @@
+--- verif/axis_transaction.sv
++++ verif/axis_transaction.sv
+@@ -6,6 +6,7 @@
+ class axis_transaction;
++    static int count = 0;
++    int id;
+     rand logic [31:0] data;
+     rand logic        last;
+ 
++    function new();
++        id = count++;
++    endfunction
++
+     function void display(string name);
+--- verif/axis_monitor.sv
++++ verif/axis_monitor.sv
+@@ -23,6 +23,7 @@
+             if (vif.user_valid && vif.obs_user_ready) begin
+                 axis_transaction tr = new();
+                 tr.data = vif.user_data;
+                 tr.last = vif.user_last;
++                $display("[%0t ns] [MON_IN] Captured data=%h", $time, tr.data);
+                 mon2scb_in.put(tr);
+             end
+         end
+@@ -34,6 +35,7 @@
+             if (vif.obs_tvalid && vif.obs_tready) begin
+                 axis_transaction tr = new();
+                 tr.data = vif.tdata;
+                 tr.last = vif.tlast;
++                $display("[%0t ns] [MON_OUT] Captured data=%h", $time, tr.data);
+                 mon2scb_out.put(tr);
+             end
+         end
+--- verif/axis_scoreboard.sv
++++ verif/axis_scoreboard.sv
+@@ -26,6 +26,7 @@
+             if (tr_in.compare(tr_out)) begin
+                 match_count++;
++                $display("[%0t ns] [SCOREBOARD] MATCH: data=%h", $time, tr_in.data);
+             end else begin
+                 error_count++;
+                 $display("[%0t ns] [SCOREBOARD] ERROR! Expected data=%h, Actual data=%h", $time, tr_in.data, tr_out.data);

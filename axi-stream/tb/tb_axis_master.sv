@@ -17,7 +17,7 @@ module tb_axis_master ();
     wire        done_o;
     wire [31:0] data_count_o;
 
-    // AXI-Stream 버스 신호 (Master와 Slave를 이어주는 내부 전선들)
+    // AXI-Stream 인터페이스 신호
     wire        axis_tvalid;
     wire        axis_tready;
     wire [31:0] axis_tdata;
@@ -97,57 +97,56 @@ module tb_axis_master ();
         @(posedge ACLK);
         user_valid_i = 1;
         user_data_i  = 32'h1111_AAAA;
-        user_last_i  = 1; // 단발성이므로 마지막 데이터라고 명시!
+        user_last_i  = 1; // 패킷의 마지막 데이터 표시
         
-        // 시뮬레이션 상에서는 Master가 받을 준비(user_ready_o==1)가 되어있을 때만 다음 클럭으로 넘어가도록 구현
+        // Master 준비 상태(user_ready_o == 1) 대기
         while (user_ready_o == 0) @(posedge ACLK);
         
         @(posedge ACLK); 
-        user_valid_i = 0; // Master가 데이터를 가져갔으므로 user는 off
+        user_valid_i = 0; // 데이터 전송 완료 후 valid 비활성화
 
-        #40; // 잠시 휴식
+        #40; // 대기 시간
 
         // ----------------------------------------------------
         // [시나리오 2] Back-pressure 역전파 및 복구 후 연속 전송
         // ----------------------------------------------------
         $display("\n[%0t ns] === Scenario 2: Back-pressure & Recovery ===", $time);
         
-        // 1. 갑자기 Slave 측 수신 스위치(TREADY)를 내려서 톨게이트를 닫아버립니다!
+        // 1. Slave 수신 비활성화 (enable_rx_i = 0으로 설정하여 TREADY 비활성화)
         @(posedge ACLK);
         enable_rx_i = 0; 
         $display("[%0t ns] [WARNING] Slave is Disabled! (TREADY=0)", $time);
 
-        // 2. 이 사실을 모르는 User Logic은 평소처럼 첫 번째 데이터를 Master에게 맡깁니다.
+        // 2. User logic에서 첫 번째 데이터 전송 시도
         @(posedge ACLK);
         user_valid_i = 1;
         user_data_i  = 32'h2222_BBBB;
         user_last_i  = 0;
         
-        // Master는 현재 빈 통이므로 2222_BBBB를 일단 기분 좋게 꿀꺽 삼킵니다.
+        // Master 내부 버퍼가 비어있어 첫 번째 데이터 수락
         while (user_ready_o == 0) @(posedge ACLK); 
         @(posedge ACLK);
         
-        // 3. User Logic은 이어서 두 번째 데이터를 넣으려고 핀에 값을 올립니다.
+        // 3. User logic에서 두 번째 데이터 전송을 위해 입력 데이터 갱신
         user_data_i  = 32'h3333_CCCC;
         user_last_i  = 1;
         
-        // 하지만! Master는 첫 번째 데이터(2222_BBBB)를 버스에 올렸지만 톨게이트(Slave)가 닫혀있어 꽉 막혀있습니다.
-        // Master는 더 이상 짐을 받을 수 없으므로, 위쪽으로 올리던 user_ready_o 핀을 '0'으로 내려버릴 것입니다! (Back-pressure 전파)
+        // Slave가 비활성화(s_axis_tready = 0)되어 Master에서 Slave로의 전송이 중단됩니다.
+        // Master 버퍼가 가득 차면서 user_ready_o가 0으로 비활성화됩니다. (Back-pressure 전파)
         #1;
         $display("[%0t ns] User logic wants to send 3333_CCCC, but Master's user_ready_o is %b", $time, user_ready_o);
         
-        // 4. 강제로 4클럭 동안 톨게이트가 고장난 상태를 유지합니다.
-        // User Logic은 user_ready_o가 1이 될 때까지 무한정 기다리는 while문에 갇히게 됩니다!
+        // 4. 4클럭 주기 동안 Slave 비활성 상태 유지하며 User logic은 user_ready_o가 1이 될 때까지 대기
         fork
             begin
-                // Thread A: User Logic은 ready가 될 때까지 손가락 빨며 대기
+                // Thread A: user_ready_o가 1이 될 때까지 대기
                 while (user_ready_o == 0) @(posedge ACLK);
                 @(posedge ACLK);
                 user_valid_i = 0;
                 $display("[%0t ns] Master finally accepted 3333_CCCC!", $time);
             end
             begin
-                // Thread B: 신적인 권한으로 40ns 뒤에 톨게이트 수리 완료!
+                // Thread B: 40ns 경과 후 Slave 활성화 (enable_rx_i = 1)
                 #40;
                 $display("[%0t ns] [REPAIRED] Enabling Slave again (TREADY=1)", $time);
                 enable_rx_i = 1;
